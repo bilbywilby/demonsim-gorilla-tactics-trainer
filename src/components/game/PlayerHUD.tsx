@@ -10,6 +10,8 @@ export function PlayerHUD() {
   const togglePrayer = useGameStore(s => s.togglePrayer);
   const setPlayerStyle = useGameStore(s => s.setPlayerStyle);
   const playerAttack = useGameStore(s => s.playerAttack);
+  const gorillas = useGameStore(s => s.gorillas);
+  const activeTargetIndex = useGameStore(s => s.activeTargetIndex);
   const hpPercent = (playerHp / 99) * 100;
   return (
     <div className="w-full bg-slate-900 border-t-4 border-slate-800 p-6 flex flex-col md:flex-row gap-8 items-center justify-between">
@@ -55,8 +57,11 @@ export function PlayerHUD() {
           </Button>
         ))}
       </div>
-      <Button 
-        onClick={playerAttack}
+      <Button
+        onClick={() => {
+          const targetId = gorillas[activeTargetIndex]?.id;
+          if (targetId) playerAttack(targetId);
+        }}
         size="lg"
         className="bg-orange-600 hover:bg-orange-500 text-white font-bold h-16 px-8 rounded-xl animate-pulse"
       >
