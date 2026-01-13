@@ -1,6 +1,6 @@
 # Cloudflare Full-Stack Boilerplate
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/demonsim-gorilla-tactics-trainer)
 
 A production-ready full-stack boilerplate powered by Cloudflare Workers and Pages. Features a modern React 18 frontend with TypeScript, shadcn/ui components, Tailwind CSS, and a Hono-based API backend. Perfect for building scalable web apps with zero-config deployment to Cloudflare's global edge network.
 
@@ -108,7 +108,7 @@ This builds the app and runs `wrangler deploy`. Your app will be live on `*.work
 
 For custom domains or advanced config, see [Cloudflare Workers docs](https://developers.cloudflare.com/workers/).
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/bilbywilby/demonsim-gorilla-tactics-trainer)
 
 ## Customization
 
