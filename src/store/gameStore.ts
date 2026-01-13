@@ -8,10 +8,10 @@ import {
   ATTACK_STYLES,
   DEFAULT_CONFIG,
   SESSION_INITIAL_STATS,
-  MAX_GORILLAS,
   BOULDER_CHANCE,
   BOULDER_DAMAGE,
   BOULDER_TICKS,
+  GORILLA_VARIANTS,
   GameEvent,
   GorillaSnapshot
 } from '@/lib/constants';
@@ -45,12 +45,14 @@ interface GameState {
   setTarget: (index: number) => void;
   setConfig: (key: keyof typeof DEFAULT_CONFIG, value: any) => void;
   stopSession: () => void;
+  clearActiveMechanics: () => void;
   reset: () => void;
   addLog: (message: string, type: string) => void;
   pushEvent: (type: GameEvent['type'], value: any, gorillaId?: string) => void;
 }
 const createGorilla = (id: string): GorillaState => ({
   id,
+  variantId: GORILLA_VARIANTS.MELEE,
   hp: MAX_HP,
   style: 'MELEE',
   prayer: 'MAGIC',
@@ -58,6 +60,7 @@ const createGorilla = (id: string): GorillaState => ({
   damageTakenInPhase: 0,
   nextAttackTick: 5,
   isAttacking: false,
+  lastUpdated: Date.now(),
 });
 export const useGameStore = create<GameState>((set, get) => ({
   gorillas: [createGorilla('g1')],
@@ -84,15 +87,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     game: { ...state.game, isRunning: false, boulders: [] },
     stats: { ...state.stats, endTime: Date.now() }
   })),
+  clearActiveMechanics: () => set(state => ({
+    game: { ...state.game, boulders: [] },
+    gorillas: state.gorillas.map(g => ({ ...g, isAttacking: false }))
+  })),
   tick: () => {
     const state = get();
     if (!state.game.isRunning) return;
     const newTick = state.game.tickCount + 1;
-    let newGorillas = state.gorillas.map(g => ({ ...g, isAttacking: false }));
+    const now = Date.now();
     let newPlayerHp = state.player.hp;
     let newStats = { ...state.stats };
     let newBoulders = [...state.game.boulders];
-    // Boulder Logic
     if (Math.random() < BOULDER_CHANCE) {
       const bId = crypto.randomUUID();
       newBoulders.push({ id: bId, spawnTick: newTick, hitTick: newTick + BOULDER_TICKS });
@@ -108,37 +114,38 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       return true;
     });
-    // NPC Logic
-    newGorillas = newGorillas.map(g => {
-      if (newTick >= g.nextAttackTick) {
-        g.isAttacking = true;
-        g.nextAttackTick = newTick + 5;
+    const newGorillas = state.gorillas.map(g => {
+      const updatedGorilla = { ...g, isAttacking: false, lastUpdated: now };
+      if (newTick >= updatedGorilla.nextAttackTick) {
+        updatedGorilla.isAttacking = true;
+        updatedGorilla.nextAttackTick = newTick + 5;
         newStats.totalAttacksReceived += 1;
-        if (state.player.prayer === g.style) {
-          g.missCount += 1;
+        if (state.player.prayer === updatedGorilla.style) {
+          updatedGorilla.missCount += 1;
           newStats.prayersCorrect += 1;
         } else {
           const dmg = Math.floor(Math.random() * 30) + 1;
           newPlayerHp = Math.max(0, newPlayerHp - dmg);
           newStats.damageTaken += dmg;
-          state.pushEvent('DAMAGE', { amount: dmg, target: 'player' }, g.id);
-          g.missCount = 0;
+          state.pushEvent('DAMAGE', { amount: dmg, target: 'player' }, updatedGorilla.id);
+          updatedGorilla.missCount = 0;
         }
-        if (g.missCount >= 3) {
-          const others = ATTACK_STYLES.filter(s => s !== g.style);
-          g.style = others[Math.floor(Math.random() * others.length)];
-          g.missCount = 0;
-          state.pushEvent('STYLE_SWITCH', g.style, g.id);
+        if (updatedGorilla.missCount >= 3) {
+          const others = ATTACK_STYLES.filter(s => s !== updatedGorilla.style);
+          updatedGorilla.style = others[Math.floor(Math.random() * others.length)];
+          updatedGorilla.variantId = GORILLA_VARIANTS[updatedGorilla.style];
+          updatedGorilla.missCount = 0;
+          state.pushEvent('STYLE_SWITCH', updatedGorilla.style, updatedGorilla.id);
         }
       }
-      return g;
+      return updatedGorilla;
     });
     if (newPlayerHp <= 0) {
       state.stopSession();
       state.addLog("You have died.", "error");
     }
     set({
-      game: { ...state.game, tickCount: newTick, boulders: newBoulders, events: state.game.events },
+      game: { ...state.game, tickCount: newTick, boulders: newBoulders },
       gorillas: newGorillas,
       player: { ...state.player, hp: newPlayerHp },
       stats: newStats
@@ -161,7 +168,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (g.damageTakenInPhase >= DAMAGE_CAP) {
       const others = ATTACK_STYLES.filter(s => s !== state.player.style);
       g.prayer = others[Math.floor(Math.random() * others.length)];
-      g.damageTakenInPhase = 0;
+      g.damageTakenInPhase = 0; // Precise reset on transition
       state.pushEvent('PRAYER_SWITCH', g.prayer, g.id);
     }
     const newGorillas = [...state.gorillas];
