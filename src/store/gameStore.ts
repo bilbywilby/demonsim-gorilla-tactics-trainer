@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import { AttackStyle, ProtectionPrayer, MAX_HP, PLAYER_MAX_HP, DAMAGE_CAP, ATTACK_STYLES } from '@/lib/constants';
+import { 
+  AttackStyle, 
+  ProtectionPrayer, 
+  MAX_HP, 
+  PLAYER_MAX_HP, 
+  DAMAGE_CAP, 
+  ATTACK_STYLES,
+  DEFAULT_CONFIG,
+  SESSION_INITIAL_STATS 
+} from '@/lib/constants';
 interface LogEntry {
   id: string;
   message: string;
@@ -27,10 +36,14 @@ interface GameState {
     isRunning: boolean;
     logs: LogEntry[];
   };
+  config: typeof DEFAULT_CONFIG;
+  stats: typeof SESSION_INITIAL_STATS & { endTime: number };
   tick: () => void;
   playerAttack: () => void;
   togglePrayer: (prayer: ProtectionPrayer) => void;
   setPlayerStyle: (style: AttackStyle) => void;
+  setConfig: (key: keyof typeof DEFAULT_CONFIG, value: any) => void;
+  stopSession: () => void;
   reset: () => void;
   addLog: (message: string, type: LogEntry['type']) => void;
 }
@@ -55,11 +68,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     isRunning: false,
     logs: [],
   },
+  config: { ...DEFAULT_CONFIG },
+  stats: { ...SESSION_INITIAL_STATS, endTime: 0 },
   addLog: (message, type) => set(state => ({
     game: {
       ...state.game,
       logs: [{ id: crypto.randomUUID(), message, type, timestamp: Date.now() }, ...state.game.logs].slice(0, 50)
     }
+  })),
+  setConfig: (key, value) => set(state => ({
+    config: { ...state.config, [key]: value }
+  })),
+  stopSession: () => set(state => ({
+    game: { ...state.game, isRunning: false },
+    stats: { ...state.stats, endTime: Date.now() }
   })),
   tick: () => {
     const state = get();
@@ -67,22 +89,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newTickCount = state.game.tickCount + 1;
     let newGorilla = { ...state.gorilla, isAttacking: false };
     let newPlayer = { ...state.player };
-    // Gorilla Attack Logic
+    let newStats = { ...state.stats };
     if (newTickCount >= state.gorilla.nextAttackTick) {
       newGorilla.isAttacking = true;
       newGorilla.nextAttackTick = newTickCount + 5;
-      // Check if player blocked
+      newStats.totalAttacksReceived += 1;
       const isBlocked = state.player.prayer === state.gorilla.style;
       if (isBlocked) {
         get().addLog(`Gorilla's ${state.gorilla.style} attack was blocked!`, 'info');
         newGorilla.missCount += 1;
+        newStats.prayersCorrect += 1;
       } else {
         const dmg = Math.floor(Math.random() * 30) + 1;
         newPlayer.hp = Math.max(0, newPlayer.hp - dmg);
+        newStats.damageTaken += dmg;
         get().addLog(`Gorilla hits you for ${dmg} with ${state.gorilla.style}!`, 'gorilla');
         newGorilla.missCount = 0;
       }
-      // 3-miss mechanic: switch style
       if (newGorilla.missCount >= 3) {
         const otherStyles = ATTACK_STYLES.filter(s => s !== state.gorilla.style);
         const nextStyle = otherStyles[Math.floor(Math.random() * otherStyles.length)];
@@ -91,17 +114,21 @@ export const useGameStore = create<GameState>((set, get) => ({
         newGorilla.missCount = 0;
         get().addLog(`Gorilla switches attack style to ${nextStyle}!`, 'info');
       }
+      if (newPlayer.hp <= 0) {
+        get().stopSession();
+        get().addLog("You have died.", "error");
+      }
     }
-    set({ 
+    set({
       game: { ...state.game, tickCount: newTickCount },
       gorilla: newGorilla,
-      player: newPlayer
+      player: newPlayer,
+      stats: newStats
     });
   },
   playerAttack: () => {
     const state = get();
     if (!state.game.isRunning) return;
-    // Check if gorilla blocks
     if (state.player.style === state.gorilla.prayer) {
       get().addLog(`Your ${state.player.style} attack was protected!`, 'error');
       return;
@@ -109,6 +136,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const dmg = Math.floor(Math.random() * 40) + 5;
     const newHp = Math.max(0, state.gorilla.hp - dmg);
     const newDamageInPhase = state.gorilla.damageTakenInPhase + dmg;
+    let newStats = { ...state.stats };
+    newStats.damageDealt += dmg;
     get().addLog(`You hit the Gorilla for ${dmg}!`, 'player');
     let newPrayer = state.gorilla.prayer;
     let finalDamageInPhase = newDamageInPhase;
@@ -124,8 +153,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         hp: newHp,
         prayer: newPrayer,
         damageTakenInPhase: finalDamageInPhase
-      }
+      },
+      stats: newStats
     }));
+    if (newHp <= 0) {
+      get().stopSession();
+      get().addLog("The Gorilla has been defeated!", "info");
+    }
   },
   togglePrayer: (p) => set(s => ({
     player: { ...s.player, prayer: s.player.prayer === p ? 'NONE' : p }
@@ -153,6 +187,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       tickCount: 0,
       isRunning: true,
       logs: [],
-    }
+    },
+    stats: { ...SESSION_INITIAL_STATS, startTime: Date.now(), endTime: 0 }
   })
 }));

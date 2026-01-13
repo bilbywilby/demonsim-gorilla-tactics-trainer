@@ -1,72 +1,98 @@
-/* This is a demo sidebar. **COMPULSORY** Edit this file to customize the sidebar OR remove it from appLayout OR don't use appLayout at all */
 import React from "react";
-import { Home, Layers, Compass, Star, Settings, LifeBuoy } from "lucide-react";
+import { Settings, RefreshCw, Eye, Maximize, Ruler } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarHeader,
-  SidebarSeparator,
-  SidebarInput,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuAction,
-  SidebarMenuBadge,
 } from "@/components/ui/sidebar";
-
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useGameStore } from "@/store/gameStore";
 export function AppSidebar(): JSX.Element {
+  const zoom = useGameStore(s => s.config.zoom);
+  const showProgressBar = useGameStore(s => s.config.showProgressBar);
+  const showPluginOverlay = useGameStore(s => s.config.showPluginOverlay);
+  const progressBarWidth = useGameStore(s => s.config.progressBarWidth);
+  const setConfig = useGameStore(s => s.setConfig);
+  const reset = useGameStore(s => s.reset);
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="h-6 w-6 rounded-md bg-gradient-to-br from-indigo-500 to-purple-500" />
-          <span className="text-sm font-medium">Demo Sidebar</span>
+        <div className="flex items-center gap-2 px-2 py-4">
+          <Settings className="h-5 w-5 text-orange-500" />
+          <span className="text-sm font-bold uppercase tracking-wider">Simulator Settings</span>
         </div>
-        <SidebarInput placeholder="Search" />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive>
-                <a href="#"><Home /> <span>Home</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Layers /> <span>Projects</span></a>
-              </SidebarMenuButton>
-              <SidebarMenuAction>
-                <Star className="size-4" />
-              </SidebarMenuAction>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Compass /> <span>Explore</span></a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <SidebarGroupLabel>Viewport Scaling</SidebarGroupLabel>
+          <div className="px-3 py-4 space-y-6">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-xs flex items-center gap-2"><Maximize className="w-3 h-3" /> Zoom</Label>
+                <span className="text-[10px] font-mono bg-accent px-1 rounded">{zoom.toFixed(1)}x</span>
+              </div>
+              <Slider 
+                value={[zoom]} 
+                min={0.5} 
+                max={2.0} 
+                step={0.1} 
+                onValueChange={([v]) => setConfig('zoom', v)}
+              />
+            </div>
+          </div>
         </SidebarGroup>
-
-        <SidebarSeparator />
-
         <SidebarGroup>
-          <SidebarGroupLabel>Quick Links</SidebarGroupLabel>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a href="#"><Star /> <span>Starred</span></a>
-              </SidebarMenuButton>
-              <SidebarMenuBadge>5</SidebarMenuBadge>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <SidebarGroupLabel>Plugin Configuration</SidebarGroupLabel>
+          <div className="px-3 py-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-2"><Eye className="w-3 h-3" /> Show Overlay</Label>
+              <Switch 
+                checked={showPluginOverlay} 
+                onCheckedChange={(v) => setConfig('showPluginOverlay', v)} 
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-2"><Ruler className="w-3 h-3" /> Prayer Progress</Label>
+              <Switch 
+                checked={showProgressBar} 
+                onCheckedChange={(v) => setConfig('showProgressBar', v)} 
+              />
+            </div>
+            {showProgressBar && (
+              <div className="space-y-3 pt-2">
+                <div className="flex justify-between items-center">
+                  <Label className="text-[10px] text-muted-foreground uppercase">Bar Width</Label>
+                  <span className="text-[10px] font-mono">{progressBarWidth}px</span>
+                </div>
+                <Slider 
+                  value={[progressBarWidth]} 
+                  min={32} 
+                  max={128} 
+                  step={8} 
+                  onValueChange={([v]) => setConfig('progressBarWidth', v)}
+                />
+              </div>
+            )}
+          </div>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <div className="px-2 text-xs text-muted-foreground">A simple shadcn sidebar</div>
+      <SidebarFooter className="p-4">
+        <Button 
+          variant="destructive" 
+          className="w-full gap-2 text-xs" 
+          onClick={reset}
+        >
+          <RefreshCw className="w-3 h-3" /> Reset Session
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );
